@@ -100,7 +100,11 @@ def open_file(mode):
 
             save_json()
 
+stopped = False
+
 def bruteforce():
+    global stopped
+    stopped = False
     if not archive or not passwords:
         showerror(title="Error - ArchForce", message="You have to choose an archive and a passwords dictionary in order to bruteforce.", icon="error")
     else:
@@ -114,10 +118,12 @@ def bruteforce():
         def pause():
             pause_btn.config(state="disabled")
             resume_btn.config(state="normal")
+            loop.call_soon_threadsafe(loop.stop)
 
         def resume():
-            resume_btn.config(state="disabled")
             pause_btn.config(state="normal")
+            resume_btn.config(state="disabled")
+            loop.call_soon_threadsafe(loop.run_forever)
 
         def stop():
             pause_btn.config(state="disabled")
@@ -164,7 +170,9 @@ def bruteforce():
                         stop()
 
                     with ZipFile(archive, "r") as _f:
-                        while True:
+                        while not stopped:
+                            index += 1
+
                             try:
                                 _f.extractall(path="temp/extracted", pwd=bytes(pwds[index], "utf-8"))
 

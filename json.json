@@ -1,0 +1,13 @@
+{
+    "prefs": {
+        "saveInputs": [
+            true,
+            true
+        ]
+    },
+    "inputs": {
+        "sleepTime": "0",
+        "archive": "",
+        "passwords": ""
+    }
+}

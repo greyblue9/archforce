@@ -1,5 +1,6 @@
 from os import getcwd
 from os.path import isfile
+from platform import machine
 from json import load, dump
 from webbrowser import open_new_tab
 from threading import Thread
@@ -17,7 +18,7 @@ except:
 
     exit()
 
-VERSION = "v1.0.0"
+VERSION = "v1.0.0a"
 DESCRIPTION = "ArchForce is an archive bruteforcer, it takes a dictionary of passwords and tries to extract the archive with it. If there are any issues or you want a feature to be added, please open an issue in the project's GitHub repository."
 INSTRUCTIONS = "To bruteforce a file, firstly, choose the type of the archive you're going to bruteforce, secondly, choose the target archive you want to bruteforce, then choose a dictionary (A file) with the list of passwords that could potentially be the password for the archive seperated by newlines. Then just click \"Bruteforce\" and the bruteforcing process will start, you will be alerted when the password has been found."
 
@@ -77,6 +78,14 @@ prefs.add_command(label="Reset", command=reset_prefs)
 
 window.config(menu=menu)
 
+def validate_ext(ext):
+    exts = ["zip", "gz", "bz2", "lzma"]
+
+    if ext in exts:
+        return True
+    else:
+        return False
+
 def open_file(mode):
     global archive, passwords
 
@@ -100,31 +109,37 @@ def open_file(mode):
 
             save_json()
 
+stopped = False
+
 def bruteforce():
+    global stopped
+    stopped = False
     if not archive or not passwords:
         showerror(title="Error - ArchForce", message="You have to choose an archive and a passwords dictionary in order to bruteforce.", icon="error")
+    elif not validate_ext(archive.split(".")[-1]):
+        showerror(title="Error - ArchForce", message="The archive chosen isn't supported. Supported archive extensions: .zip, .gz, .bz2, .lzma", icon="error")
     else:
         window.withdraw()
 
-        global index, pwds
+        global index
         index = 0
-
-        # TODO: pause & resume
 
         def pause():
             pause_btn.config(state="disabled")
             resume_btn.config(state="normal")
+            loop.call_soon_threadsafe(loop.stop)
 
         def resume():
-            resume_btn.config(state="disabled")
             pause_btn.config(state="normal")
+            resume_btn.config(state="disabled")
+            loop.call_soon_threadsafe(loop.run_forever)
 
         def stop():
             pause_btn.config(state="disabled")
             resume_btn.config(state="disabled")
             stop_btn.config(state="disabled")
 
-            loop.call_soon_threadsafe(loop.stop) # FIXME: doesnt work properly
+            loop.call_soon_threadsafe(loop.stop)
 
         def _stop():
             question = askyesno(title="Stop - ArchForce", message="Are you sure you wanna stop the bruteforcer?", icon="question")
@@ -133,21 +148,19 @@ def bruteforce():
                 stop()
 
         def __stop():
-            _stop()
-
+            print("Stopped")
+            stopped = True
             _window.destroy()
             window.deiconify()
 
         def write_logs(log, plus):
             logs.config(state="normal")
-
             logs.insert("end", f"#{index + 1 if plus else index}: {log}")
-
             logs.config(state="disabled")
 
         def _bruteforce():
             async def __bruteforce():
-                global index, pwds
+                global index
 
                 with open(passwords, "r") as f:
                     pwds = f.readlines()
@@ -164,7 +177,9 @@ def bruteforce():
                         stop()
 
                     with ZipFile(archive, "r") as _f:
-                        while True:
+                        while not stopped:
+                            index += 1
+
                             try:
                                 _f.extractall(path="temp/extracted", pwd=bytes(pwds[index], "utf-8"))
 
@@ -180,30 +195,24 @@ def bruteforce():
 
                                 logs.see("end")
                             except IndexError:
-                                pass
+                                raise
                             except Exception as error:
                                 write_logs(f"Error Occured: {error}", False)
 
                                 showerror(title="Error - ArchForce", message=f"An error occured:\n{error}", icon="error")
 
-                                stop()
-
-                            index += 1
+                                return
 
                             await sleep(int(sleep_var.get()))
-
-                # TODO: add support for the remaining formats
-
                 elif archive.endswith(".gz"):
                     pass
                 elif archive.endswith(".bz2"):
                     pass
                 elif archive.endswith(".lzma"):
                     pass
-                else:
-                    showerror(title="Error - ArchForce", message="The archive chosen isn't supported. Supported archive extensions: .zip, .gz, .bz2, .lzma", icon="error")
 
-            loop.run_until_complete(__bruteforce()) # FIXME: "__bruteforce' was never awaited" on second bruteforcing time
+            ## end def __bruteforce
+            loop.run_until_complete(__bruteforce())
 
         _window = Toplevel()
 
@@ -212,7 +221,6 @@ def bruteforce():
         _window.geometry("800x650")
 
         sleep_time_info = Label(_window, text=f"Sleep Time: {sleep_var.get()} second(s)")
-        # pwds_info = Label(_window, text=f"Passwords: {len(pwds)} password(s)") # FIXME: "pwds is not defined"
 
         logs = Text(_window, height=30)
 
@@ -220,13 +228,12 @@ def bruteforce():
 
         pause_btn = Button(_window, text="Pause", command=pause)
         resume_btn = Button(_window, text="Resume", command=resume)
-        stop_btn = Button(_window, text="Stop", command=_stop)
+        stop_btn = Button(_window, text="Stop", command=stop)
 
         resume_btn.config(state="disabled")
 
         place = {
             sleep_time_info: [30, 5],
-            # pwds_info: [70, 5],
             logs: [73, 55],
             pause_btn: [450, 570],
             resume_btn: [540, 570],
@@ -242,6 +249,7 @@ def bruteforce():
         _window.protocol("WM_DELETE_WINDOW", __stop)
 
         _window.mainloop()
+
 
 sleep_time = Label(window, text="Sleep Time:")
 

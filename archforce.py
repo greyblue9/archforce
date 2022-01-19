@@ -55,11 +55,7 @@ def save_json():
         dump(_json, f, indent=4)
 
 def prefs1():
-    if _json["prefs"]["saveInputs"][0]:
-        _json["prefs"]["saveInputs"] = False
-    else:
-        _json["prefs"]["saveInputs"] = True
-
+    _json["prefs"]["saveInputs"] = not _json["prefs"]["saveInputs"][0]
     save_json()
 
 def reset_prefs():
@@ -192,15 +188,11 @@ def bruteforce():
 
                             await sleep(int(sleep_var.get()))
 
-                # TODO: add support for the remaining formats
-
                 elif archive.endswith(".gz"):
                     pass
                 elif archive.endswith(".bz2"):
                     pass
-                elif archive.endswith(".lzma"):
-                    pass
-                else:
+                elif not archive.endswith(".lzma"):
                     showerror(title="Error - ArchForce", message="The archive chosen isn't supported. Supported archive extensions: .zip, .gz, .bz2, .lzma", icon="error")
 
             loop.run_until_complete(__bruteforce()) # FIXME: "__bruteforce' was never awaited" on second bruteforcing time
@@ -285,8 +277,8 @@ place = {
     author: [103, 180]
 }
 
-for widget in place:
-    widget.place(x=place[widget][0], y=place[widget][1])
+for widget, value in place.items():
+    widget.place(x=place[widget][0], y=value[1])
 
 if _json["prefs"]["saveInputs"][0]:
     sleep_var.set(_json["inputs"]["sleepTime"])
